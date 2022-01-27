@@ -26,15 +26,59 @@ pub(crate) fn assert_one_yocto() {
     )
 }
 
+pub(crate) fn assert_at_least_one_yocto() {
+    assert!(
+        env::attached_deposit() >= 1,
+        "Requires attached deposit of at least 1 yoctoNEAR",
+    )
+}
+
+pub(crate) fn bytes_for_approved_account_id(account_id: &AccountId) -> u64 {
+    // Need to store str + 4 bytes for serialization + 64 bytes for u64
+    account_id.as_str().len() as u64 + 4 + size_of::<u64>() as u64
+}
+
+pub(crate) fn refund_approved_account_ids_iter<'a, I>(
+    account_id: AccountId,
+    approved_account_ids: I, //the approved account IDs must be passed in as an iterator
+) -> Promise
+    where
+    I: Iterator<Item = &'a AccountId>,
+{
+    //get the storage total by going through and summing all the bytes for each approved account IDs
+    let storage_released: u64 = approved_account_ids.map(bytes_for_approved_account_id).sum();
+    //transfer the account the storage that is released
+    Promise::new(account_id).transfer(Balance::from(storage_released) * env::storage_byte_cost())
+}
+
+//refund a map of approved account IDs and send the funds to the passed in account ID
+pub(crate) fn refund_approved_account_ids(
+    account_id: AccountId,
+    approved_account_ids: &HashMap<AccountId, u64>,
+) -> Promise {
+    //call the refund_approved_account_ids_iter with the approved account IDs as keys
+    refund_approved_account_ids_iter(account_id, approved_account_ids.keys())
+}
+
 impl Contract {
-    pub(crate) fn internal_transfer(&mut self, sender_id: &AccountId, receiver_id: &AccountId, token_id: &TokenId, memo: Option<String>) -> Token{
+    pub(crate) fn internal_transfer(&mut self, sender_id: &AccountId, receiver_id: &AccountId, token_id: &TokenId, approval_id: Option<u64>, memo: Option<String>) -> Token{
         let token = self.tokens_by_id.get(&token_id).expect("No Token");    
-        assert_eq!(&token.owner_id, sender_id, "Unauthorized: You can't transfer that token!");
+        if sender_id != &token.owner_id{
+            if !token.approved_account_ids.contains_key(sender_id) {
+                env::panic_str("Unauthorized: Must be approved to send token.");
+            }
+            if let Some(enforced_approval_id) = approval_id {
+                let actual_approval_id = token.approved_account_ids.get(sender_id).expect("Unauthorized: sender is not approved.");
+                assert_eq!(actual_approval_id, &enforced_approval_id, "Unauthorized: incorrect approval id.");
+            }
+        }
         assert_ne!(sender_id, receiver_id, "Error: You can't send a token to yourself.");
         self.internal_remove_token_from_owner(sender_id, token_id);
         self.internal_add_token_to_owner(receiver_id, token_id);
         let new_token = Token {
             owner_id: receiver_id.clone(),
+            approved_account_ids: Default::default(),
+          next_approval_id: token.next_approval_id,
         };
         self.tokens_by_id.insert(token_id, &new_token);
         if let Some(memo) = memo {
