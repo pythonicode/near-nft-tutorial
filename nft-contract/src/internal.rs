@@ -60,6 +60,10 @@ pub(crate) fn refund_approved_account_ids(
     refund_approved_account_ids_iter(account_id, approved_account_ids.keys())
 }
 
+pub(crate) fn royalty_to_payout(royalty: u32, amount_to_pay: Balance) -> U128 {
+    U128(royalty as u128 * amount_to_pay / 10_000u128)
+}
+
 impl Contract {
     pub(crate) fn internal_transfer(&mut self, sender_id: &AccountId, receiver_id: &AccountId, token_id: &TokenId, approval_id: Option<u64>, memo: Option<String>) -> Token{
         let token = self.tokens_by_id.get(&token_id).expect("No Token");    
@@ -72,18 +76,46 @@ impl Contract {
                 assert_eq!(actual_approval_id, &enforced_approval_id, "Unauthorized: incorrect approval id.");
             }
         }
-        assert_ne!(sender_id, receiver_id, "Error: You can't send a token to yourself.");
-        self.internal_remove_token_from_owner(sender_id, token_id);
+        assert_ne!(&token.owner_id, receiver_id, "Error: You can't send a token to yourself.");
+        self.internal_remove_token_from_owner(&token.owner_id, token_id);
         self.internal_add_token_to_owner(receiver_id, token_id);
         let new_token = Token {
             owner_id: receiver_id.clone(),
             approved_account_ids: Default::default(),
-          next_approval_id: token.next_approval_id,
+            next_approval_id: token.next_approval_id,
+            royalty: token.royalty.clone(),
         };
         self.tokens_by_id.insert(token_id, &new_token);
-        if let Some(memo) = memo {
+        if let Some(memo) = memo.as_ref() {
             env::log_str(&format!("Memo: {}", memo).to_string());
         }
+        let mut authorized_id = None;
+        //if the approval ID was provided, set the authorized ID equal to the sender
+        if approval_id.is_some() {
+            authorized_id = Some(sender_id.to_string());
+        }
+        // Construct the transfer log as per the events standard.
+        let nft_transfer_log: EventLog = EventLog {
+            // Standard name ("nep171").
+            standard: NFT_STANDARD_NAME.to_string(),
+            // Version of the standard ("nft-1.0.0").
+            version: NFT_METADATA_SPEC.to_string(),
+            // The data related with the event stored in a vector.
+            event: EventLogVariant::NftTransfer(vec![NftTransferLog {
+                // The optional authorized account ID to transfer the token on behalf of the old owner.
+                authorized_id,
+                // The old owner's account ID.
+                old_owner_id: token.owner_id.to_string(),
+                // The account ID of the new owner of the token.
+                new_owner_id: receiver_id.to_string(),
+                // A vector containing the token IDs as strings.
+                token_ids: vec![token_id.to_string()],
+                // An optional memo to include.
+                memo,
+            }]),
+        };
+        // Log the serialized json.
+        env::log_str(&nft_transfer_log.to_string());
         token
     }
 

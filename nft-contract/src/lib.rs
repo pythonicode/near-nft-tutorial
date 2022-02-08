@@ -13,6 +13,7 @@ pub use crate::nft_core::*;
 pub use crate::approval::*;
 pub use crate::royalty::*;
 pub use crate::internal::*;
+pub use crate::events::*;
 
 mod internal;
 mod approval; 
@@ -20,7 +21,12 @@ mod enumeration;
 mod metadata; 
 mod mint; 
 mod nft_core; 
-mod royalty; 
+mod royalty;
+mod events;
+
+// TOKEN SPEC AND STANDARD
+pub const NFT_METADATA_SPEC: &str = "1.0.0";
+pub const NFT_STANDARD_NAME: &str = "nep171";
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]

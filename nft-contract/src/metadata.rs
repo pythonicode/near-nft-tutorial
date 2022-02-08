@@ -41,6 +41,7 @@ pub struct Token {
     pub owner_id: AccountId, //owner of the token
     pub approved_account_ids: HashMap<AccountId, u64>,
     pub next_approval_id: u64,
+    pub royalty: HashMap<AccountId, u32>,
 }
 
 //The Json token is what will be returned from view calls. 
@@ -51,6 +52,7 @@ pub struct JsonToken {
     pub owner_id: AccountId,
     pub metadata: TokenMetadata,
     pub approved_account_ids: HashMap<AccountId, u64>,
+    pub royalty: HashMap<AccountId, u32>,
 }
 
 pub trait NonFungibleTokenMetadata {

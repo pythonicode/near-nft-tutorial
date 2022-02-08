@@ -339,10 +339,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "nft_simple"
+name = "nft-tutorial"
 version = "0.1.0"
 dependencies = [
  "near-sdk",
+ "serde_json",
 ]
 
 [[package]]
