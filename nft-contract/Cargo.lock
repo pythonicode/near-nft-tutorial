@@ -339,7 +339,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nft-tutorial"
+name = "nearsound_nft"
 version = "0.1.0"
 dependencies = [
  "near-sdk",

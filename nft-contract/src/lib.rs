@@ -35,6 +35,8 @@ pub struct Contract {
     pub tokens_per_owner: LookupMap<AccountId, UnorderedSet<TokenId>>,
     pub tokens_by_id: LookupMap<TokenId, Token>,
     pub token_metadata_by_id: UnorderedMap<TokenId, TokenMetadata>,
+    pub artist_by_account: UnorderedMap<AccountId, String>,
+    pub artist_name: UnorderedMap<String, String>,
     pub metadata: LazyOption<NFTContractMetadata>,
 }
 
